@@ -209,6 +209,53 @@ Copy `engine/scrollcraft.js` and `engine/scrollcraft.css` into the build folder.
 Never edit the engine per-project; it is the mechanism. Theme it with tokens and
 write your own markup.
 
+### Codex (Astra)
+
+This fork targets Astra running inside **Codex** (OpenAI's agentic coding
+CLI/IDE harness), confirmed against OpenAI's own Codex documentation
+(developers.openai.com/codex, checked October 2026). Codex executes commands
+on the operator's actual local machine, not a cloud sandbox, under a default
+`workspace-write` sandbox: it reads, edits, and runs routine commands inside
+the workspace automatically, without the per-command approval prompt a tool
+like Manus desktop requires. For this skill that means Steps 3 and 5's
+repeated shell calls run the same way they do under Claude Code, with one
+exception:
+
+**Network access is off by default and has to be explicitly allow-listed.**
+Codex's sandbox blocks all outbound network until domains are added:
+
+```toml
+[features.network_proxy]
+enabled = true
+domains = { "api.kie.ai" = "allow" }
+```
+
+Without this, Step 3's `kie.mjs` calls fail at the sandbox boundary, not at
+the API. The same applies to anything Step 5 needs to fetch the first time,
+such as `npx playwright install` downloading browser binaries: allow-list
+that download host too, or confirm Chrome/Playwright are already installed
+so nothing needs fetching mid-build. Confirm the actual current domains
+Codex requires for kie.ai and Playwright's download CDN before a build,
+rather than assuming the example above is complete or permanent.
+
+**Approval policy:** the default `on-request` already runs workspace commands
+without prompting; `approval_policy = "never"` removes prompts entirely for a
+fully unattended run while keeping the sandbox in place. `danger-full-access`
+removes the sandbox too and is not the default for a reason; don't reach for
+it just to avoid configuring the network allowlist above.
+
+**Windows note:** Codex's sandbox on Windows runs either a native Windows
+sandbox in PowerShell or, under WSL2, a Linux sandbox via `bubblewrap`.
+`doctor.mjs`'s Windows-first ffmpeg discovery assumes the native PowerShell
+path; confirm which mode Codex is actually running in before relying on it,
+since under WSL2 the discovery behaves like a Linux-sandbox case rather than
+native Windows.
+
+Nothing else in this skill changes for Codex: the interview, the fingerprint
+gate, the grammar-justification requirement, the hard rules, the taste floor,
+the device kit, the world preambles, and the verification harness are the
+same as for Claude Code.
+
 ## Step 1: The brief, journey first
 
 The subject is the user's to state. Ask it open, in plain prose, never as a
