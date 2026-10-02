@@ -244,6 +244,17 @@ fully unattended run while keeping the sandbox in place. `danger-full-access`
 removes the sandbox too and is not the default for a reason; don't reach for
 it just to avoid configuring the network allowlist above.
 
+Checked against this account's actual Codex instance on 2026-10-02: it is
+configured with `sandbox_mode = "danger-full-access"` and
+`approval_policy = "never"`, not the safer default this section assumes.
+Under that setting there is no sandbox boundary to allow-list through, so
+the `[features.network_proxy]` block above is currently a no-op; kie.ai and
+everything else is already reachable. Leave this section as-is for
+reference, because the allowlist becomes necessary again the moment this
+instance is tightened back to `workspace-write` or `read-only`, which is
+the safer posture for anything other than a fully trusted, fully attended
+build run.
+
 **Windows note:** Codex's sandbox on Windows runs either a native Windows
 sandbox in PowerShell or, under WSL2, a Linux sandbox via `bubblewrap`.
 `doctor.mjs`'s Windows-first ffmpeg discovery assumes the native PowerShell
@@ -255,6 +266,68 @@ Nothing else in this skill changes for Codex: the interview, the fingerprint
 gate, the grammar-justification requirement, the hard rules, the taste floor,
 the device kit, the world preambles, and the verification harness are the
 same as for Claude Code.
+
+### Manus Desktop (My Computer mode)
+
+This fork targets the Manus desktop app running in **My Computer mode**,
+confirmed against Manus's own documentation (manus.im/docs, September 2026):
+Manus reads a Skill's `SKILL.md` directly and executes the Python or Bash
+scripts it contains, and My Computer mode runs those commands on the
+operator's actual local machine, not a cloud sandbox. This skill's bootstrap
+scripts run there as written; nothing here needs reformatting for Manus's
+Skill loader.
+
+Three things differ from a Claude Code / Codex environment, and all three
+come from Manus's own documented constraints, not from this skill:
+
+1. **Every terminal command needs approval.** My Computer mode asks the
+   operator to approve each command (Allow Once / Always Allow) before it
+   runs. Step 3 (asset generation) and Step 5 (verification) make many
+   repeated calls; at the start of a build, ask the operator to grant
+   "Always Allow" for the workspace folder for the session, and prefer one
+   script invocation that does several things over many discrete commands,
+   so the build doesn't stall on approval prompts every few seconds.
+2. **Folder-scoped access only.** Manus cannot see or touch anything outside
+   folders it was explicitly granted. This means:
+   - the resolved workspace (`SCROLLCRAFT_HOME` / `.scrollcraft.json` target)
+     must itself be an authorized folder;
+   - `KIE_AI_API_KEY` must live in a `.env` inside that authorized workspace,
+     not in a global or user-profile location outside it, or Manus cannot
+     read it;
+   - if `ffmpeg` is not already reachable from inside an authorized folder,
+     vendor a portable build into the workspace (e.g. `<workspace>/bin/`)
+     rather than relying on `doctor.mjs` finding a system-wide install, since
+     that install is very likely outside anything Manus was granted.
+3. **The Windows-first ffmpeg discovery in `doctor.mjs` is correct here, not
+   a liability.** The general portability audit of this skill flagged that
+   logic as a risk for a Linux cloud sandbox (where Claude Code or Codex may
+   run). On Manus desktop's My Computer mode, commands execute directly on
+   the operator's own Windows machine, so that discovery path is the right
+   default. The folder-scoping problem above still applies: a vendored
+   `ffmpeg` inside the workspace is more reliable than system discovery
+   either way.
+
+Playwright verification (Step 5) needs a real Chrome install reachable from
+an authorized folder. Run `npx playwright install` once inside the
+authorized workspace so the browser binaries land inside the folder Manus
+can already see; don't assume a system-wide Chrome install is reachable.
+
+**First build target: the Rock Your Show site.** The four skills Manus
+previously built for that project (`gsap-lenis-integration`,
+`webgl-cursor-effect`, `reference-site-analysis`, `rys-website-build`) hold
+the actual RYS brand and requirements content, and recovery of their source
+from Manus's own export was still blocked as of the last check
+(`wolfeedge/edgecap-manus-skills` held only a scaffold README, no skill
+content). Do not invent RYS brand direction, reference sites, or
+requirements to fill that gap. Until recovery lands, run this skill against
+whatever brand material and reference sites are actually supplied for RYS,
+the same as any other client brief, and say plainly if nothing has been
+supplied yet rather than assuming.
+
+Nothing else in this skill changes for Manus: the interview, the fingerprint
+gate, the grammar-justification requirement, the hard rules, the taste
+floor, the device kit, the world preambles, and the verification harness are
+unmodified from the base fork.
 
 ## Step 1: The brief, journey first
 
